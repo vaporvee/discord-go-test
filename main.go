@@ -16,24 +16,23 @@ func main() {
 	if err != nil {
 		fmt.Println("error creating Discord session,", err)
 		return
+	} else {
+		fmt.Println("Discord session created")
 	}
+	discord.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsGuilds
 	discord.AddHandler(ready)
 	discord.AddHandler(interactionCreate)
-
 	err = discord.Open()
 	if err != nil {
 		fmt.Println("error opening connection,", err)
 		return
 	}
-
 	fmt.Println("Bot is now running. Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
-
 	discord.Close()
 }
-
 func ready(s *discordgo.Session, event *discordgo.Ready) {
 	commands := []*discordgo.ApplicationCommand{
 		{
@@ -53,22 +52,15 @@ func ready(s *discordgo.Session, event *discordgo.Ready) {
 			},
 		},
 	}
-
 	for _, guild := range event.Guilds {
-		_, err := s.ApplicationCommandCreate(s.State.User.ID, guild.ID, commands[0])
-		if err != nil {
-			fmt.Println("error creating command,", err)
-			continue // Continue to the next guild
-		}
-
-		_, err = s.ApplicationCommandCreate(s.State.User.ID, guild.ID, commands[1])
-		if err != nil {
-			fmt.Println("error creating command,", err)
-			continue // Continue to the next guild
+		for _, command := range commands {
+			_, err := s.ApplicationCommandCreate(s.State.User.ID, guild.ID, command)
+			if err != nil {
+				fmt.Printf("error creating command for %s: %v\n", guild.Name, err)
+			}
 		}
 	}
 }
-
 func interactionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if i.Type == discordgo.InteractionApplicationCommand {
 		if i.ApplicationCommandData().Name == "test" {
@@ -80,18 +72,14 @@ func interactionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			})
 		}
 		if i.ApplicationCommandData().Name == "secondtest" {
-			// Check if the command has options
 			if len(i.ApplicationCommandData().Options) > 0 {
-				// Loop through the options and handle them
 				for _, option := range i.ApplicationCommandData().Options {
-					switch option.Name {
-					case "query":
+					if option.Name == "query" {
 						value := option.Value.(string)
-						response := fmt.Sprintf("You provided the query: %s", value)
 						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 							Type: discordgo.InteractionResponseChannelMessageWithSource,
 							Data: &discordgo.InteractionResponseData{
-								Content: response,
+								Content: fmt.Sprintf("You provided the query: %s", value),
 							},
 						})
 					}
