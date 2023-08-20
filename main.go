@@ -22,6 +22,7 @@ func main() {
 	discord.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsGuilds
 	discord.AddHandler(ready)
 	discord.AddHandler(interactionCreate)
+
 	err = discord.Open()
 	if err != nil {
 		fmt.Println("error opening connection,", err)
@@ -33,6 +34,7 @@ func main() {
 	<-sc
 	discord.Close()
 }
+
 func ready(s *discordgo.Session, event *discordgo.Ready) {
 	commands := []*discordgo.ApplicationCommand{
 		{
@@ -45,13 +47,14 @@ func ready(s *discordgo.Session, event *discordgo.Ready) {
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "query",
-					Description: "The query to search for.",
+					Name:        "other_testing_value",
+					Description: "Value that the bot repeats back to you.",
 					Required:    true,
 				},
 			},
 		},
 	}
+
 	for _, guild := range event.Guilds {
 		for _, command := range commands {
 			_, err := s.ApplicationCommandCreate(s.State.User.ID, guild.ID, command)
@@ -61,6 +64,7 @@ func ready(s *discordgo.Session, event *discordgo.Ready) {
 		}
 	}
 }
+
 func interactionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if i.Type == discordgo.InteractionApplicationCommand {
 		if i.ApplicationCommandData().Name == "test" {
@@ -74,12 +78,12 @@ func interactionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if i.ApplicationCommandData().Name == "secondtest" {
 			if len(i.ApplicationCommandData().Options) > 0 {
 				for _, option := range i.ApplicationCommandData().Options {
-					if option.Name == "query" {
+					if option.Name == "other_testing_value" {
 						value := option.Value.(string)
 						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 							Type: discordgo.InteractionResponseChannelMessageWithSource,
 							Data: &discordgo.InteractionResponseData{
-								Content: fmt.Sprintf("You provided the query: %s", value),
+								Content: fmt.Sprintf("You provided the testing value: %s", value),
 							},
 						})
 					}
