@@ -40,13 +40,31 @@ func ready(s *discordgo.Session, event *discordgo.Ready) {
 			Name:        "test",
 			Description: "A test command.",
 		},
+		{
+			Name:        "secondtest",
+			Description: "A second test command.",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "query",
+					Description: "The query to search for.",
+					Required:    true,
+				},
+			},
+		},
 	}
 
 	for _, guild := range event.Guilds {
 		_, err := s.ApplicationCommandCreate(s.State.User.ID, guild.ID, commands[0])
 		if err != nil {
 			fmt.Println("error creating command,", err)
-			return
+			continue // Continue to the next guild
+		}
+
+		_, err = s.ApplicationCommandCreate(s.State.User.ID, guild.ID, commands[1])
+		if err != nil {
+			fmt.Println("error creating command,", err)
+			continue // Continue to the next guild
 		}
 	}
 }
@@ -57,9 +75,28 @@ func interactionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
-					Content: "Test recieved!",
+					Content: "You tested me!",
 				},
 			})
+		}
+		if i.ApplicationCommandData().Name == "secondtest" {
+			// Check if the command has options
+			if len(i.ApplicationCommandData().Options) > 0 {
+				// Loop through the options and handle them
+				for _, option := range i.ApplicationCommandData().Options {
+					switch option.Name {
+					case "query":
+						value := option.Value.(string)
+						response := fmt.Sprintf("You provided the query: %s", value)
+						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+							Type: discordgo.InteractionResponseChannelMessageWithSource,
+							Data: &discordgo.InteractionResponseData{
+								Content: response,
+							},
+						})
+					}
+				}
+			}
 		}
 	}
 }
