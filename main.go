@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -22,34 +24,68 @@ func main() {
 	discord.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsGuilds
 	discord.AddHandler(ready)
 	discord.AddHandler(interactionCreate)
+	discord.AddHandler(messageCreate)
 
 	err = discord.Open()
 	if err != nil {
 		fmt.Println("error opening connection,", err)
 		return
 	}
-	fmt.Println("Bot is now running. Press CTRL-C to exit.")
+	fmt.Printf("Bot is now running as \"%s\"!", discord.State.User.Username)
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
+	fmt.Println("\nShutting down...")
+	defer removeCommandsFromAllGuilds(discord)
 	discord.Close()
+}
+
+func removeCommandsFromAllGuilds(s *discordgo.Session) {
+	for _, guild := range s.State.Guilds {
+		existingCommands, err := s.ApplicationCommands(s.State.User.ID, guild.ID)
+		if err != nil {
+			fmt.Printf("error fetching existing commands for guild %s: %v\n", guild.Name, err)
+			continue
+		}
+
+		for _, existingCommand := range existingCommands {
+			err := s.ApplicationCommandDelete(s.State.User.ID, guild.ID, existingCommand.ID)
+			if err != nil {
+				fmt.Printf("error deleting command %s for guild %s: %v\n", existingCommand.Name, guild.Name, err)
+			}
+		}
+	}
 }
 
 func ready(s *discordgo.Session, event *discordgo.Ready) {
 	commands := []*discordgo.ApplicationCommand{
 		{
-			Name:        "test",
-			Description: "A test command.",
+			Name:        "dadjoke",
+			Description: "Get a dad joke.",
 		},
 		{
-			Name:        "secondtest",
-			Description: "A second test command.",
+			Name:        "take_fruit",
+			Description: "A test command with auto-completion.",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "other_testing_value",
-					Description: "Value that the bot repeats back to you.",
+					Name:        "fruit",
+					Description: "The fruit you are taking.",
 					Required:    true,
+					Choices: []*discordgo.ApplicationCommandOptionChoice{
+						{
+							Name:  "Apple",
+							Value: "apple",
+						},
+						{
+							Name:  "Banana",
+							Value: "banana",
+						},
+						{
+							Name:  "Cherry",
+							Value: "cherry",
+						},
+					},
 				},
 			},
 		},
@@ -67,23 +103,32 @@ func ready(s *discordgo.Session, event *discordgo.Ready) {
 
 func interactionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if i.Type == discordgo.InteractionApplicationCommand {
-		if i.ApplicationCommandData().Name == "test" {
+		if i.ApplicationCommandData().Name == "dadjoke" {
+			joke, err := getDadJoke()
+			if err != nil {
+				fmt.Printf("error fetching dad joke: %v\n", err)
+				return
+			}
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
-					Content: "You tested me!",
+					Content: joke,
 				},
 			})
 		}
-		if i.ApplicationCommandData().Name == "secondtest" {
+		if i.ApplicationCommandData().Name == "take_fruit" {
 			if len(i.ApplicationCommandData().Options) > 0 {
 				for _, option := range i.ApplicationCommandData().Options {
-					if option.Name == "other_testing_value" {
+					if option.Name == "fruit" {
 						value := option.Value.(string)
+						var response string
+						response = fmt.Sprintf("You took a %s!", value)
+						channel, _ := s.UserChannelCreate(i.Member.User.ID)
+						s.ChannelMessageSend(channel.ID, response)
 						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 							Type: discordgo.InteractionResponseChannelMessageWithSource,
 							Data: &discordgo.InteractionResponseData{
-								Content: fmt.Sprintf("You provided the testing value: %s", value),
+								Content: "DM Sent!",
 							},
 						})
 					}
@@ -91,4 +136,37 @@ func interactionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			}
 		}
 	}
+}
+
+func getDadJoke() (string, error) {
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", "https://icanhazdadjoke.com/", nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Add("Accept", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	var jokeResponse struct {
+		Joke string `json:"joke"`
+	}
+	decoder := json.NewDecoder(resp.Body)
+	if err := decoder.Decode(&jokeResponse); err != nil {
+		return "", err
+	}
+	return jokeResponse.Joke, nil
+}
+
+func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+	if m.Author.ID == s.State.User.ID {
+		return
+	}
+	if m.Content != "ping" {
+		return
+	}
+
 }
