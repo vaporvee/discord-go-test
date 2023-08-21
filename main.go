@@ -129,6 +129,7 @@ func interactionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
 							Type: discordgo.InteractionResponseChannelMessageWithSource,
 							Data: &discordgo.InteractionResponseData{
 								Content: "DM Sent!",
+								Flags:   1 << 6, // ephemeral message
 							},
 						})
 					}
