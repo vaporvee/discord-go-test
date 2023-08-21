@@ -1,9 +1,7 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -22,7 +20,7 @@ func main() {
 		fmt.Println("Discord session created")
 	}
 	discord.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsGuilds
-	discord.AddHandler(ready)
+	discord.AddHandler(registerCommands)
 	discord.AddHandler(interactionCreate)
 
 	err = discord.Open()
@@ -54,109 +52,4 @@ func removeCommandsFromAllGuilds(s *discordgo.Session) {
 			}
 		}
 	}
-}
-
-func ready(s *discordgo.Session, event *discordgo.Ready) {
-	commands := []*discordgo.ApplicationCommand{
-		{
-			Name:        "dadjoke",
-			Description: "Get a dad joke.",
-		},
-		{
-			Name:        "take_fruit",
-			Description: "A test command with auto-completion.",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "fruit",
-					Description: "The fruit you are taking.",
-					Required:    true,
-					Choices: []*discordgo.ApplicationCommandOptionChoice{
-						{
-							Name:  "Apple",
-							Value: "apple",
-						},
-						{
-							Name:  "Banana",
-							Value: "banana",
-						},
-						{
-							Name:  "Cherry",
-							Value: "cherry",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for _, guild := range event.Guilds {
-		for _, command := range commands {
-			_, err := s.ApplicationCommandCreate(s.State.User.ID, guild.ID, command)
-			if err != nil {
-				fmt.Printf("error creating command for %s: %v\n", guild.Name, err)
-			}
-		}
-	}
-}
-
-func interactionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if i.Type == discordgo.InteractionApplicationCommand {
-		if i.ApplicationCommandData().Name == "dadjoke" {
-			joke, err := getDadJoke()
-			if err != nil {
-				fmt.Printf("error fetching dad joke: %v\n", err)
-				return
-			}
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: joke,
-				},
-			})
-		}
-		if i.ApplicationCommandData().Name == "take_fruit" {
-			if len(i.ApplicationCommandData().Options) > 0 {
-				for _, option := range i.ApplicationCommandData().Options {
-					if option.Name == "fruit" {
-						value := option.Value.(string)
-						var response string
-						response = fmt.Sprintf("You took a %s!", value)
-						channel, _ := s.UserChannelCreate(i.Member.User.ID)
-						s.ChannelMessageSend(channel.ID, response)
-						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-							Type: discordgo.InteractionResponseChannelMessageWithSource,
-							Data: &discordgo.InteractionResponseData{
-								Content: "DM Sent!",
-								Flags:   1 << 6, // ephemeral message
-							},
-						})
-					}
-				}
-			}
-		}
-	}
-}
-
-func getDadJoke() (string, error) {
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", "https://icanhazdadjoke.com/", nil)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Add("Accept", "application/json")
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	var jokeResponse struct {
-		Joke string `json:"joke"`
-	}
-	decoder := json.NewDecoder(resp.Body)
-	if err := decoder.Decode(&jokeResponse); err != nil {
-		return "", err
-	}
-	return jokeResponse.Joke, nil
 }
