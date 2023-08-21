@@ -24,7 +24,6 @@ func main() {
 	discord.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsGuilds
 	discord.AddHandler(ready)
 	discord.AddHandler(interactionCreate)
-	discord.AddHandler(messageCreate)
 
 	err = discord.Open()
 	if err != nil {
@@ -160,14 +159,4 @@ func getDadJoke() (string, error) {
 		return "", err
 	}
 	return jokeResponse.Joke, nil
-}
-
-func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	if m.Author.ID == s.State.User.ID {
-		return
-	}
-	if m.Content != "ping" {
-		return
-	}
-
 }
