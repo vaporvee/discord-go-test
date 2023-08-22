@@ -1,6 +1,5 @@
 import os
 from distutils.dir_util import copy_tree
-import fileinput
 
 
 def insert_code_after_string(target_string, code_to_insert):
@@ -10,7 +9,7 @@ def insert_code_after_string(target_string, code_to_insert):
     for line_number, line in enumerate(lines, start=1):
         if target_string in line:
             lines.insert(line_number, code_to_insert + "\n")
-            break  # Stop searching after the first occurrence
+            break
 
     with open("register_commands.go", "w") as file:
         file.writelines(lines)
