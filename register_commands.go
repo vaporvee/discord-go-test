@@ -7,7 +7,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func registerCommands(s *discordgo.Session) {
+func registerCommands(s *discordgo.Session, event *discordgo.Ready) {
 	commands := []*discordgo.ApplicationCommand{
 		&dadjoke.CommandDefinition,
 		&takefruit.CommandDefinition,
